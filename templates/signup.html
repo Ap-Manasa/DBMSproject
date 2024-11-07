@@ -22,6 +22,17 @@
                 <label for="key">Secret Key</label>
                 <input type="text" id="key" name="key" required>
             </div>
+            <div>
+            <label for="security_question">Security Question:</label><br>
+            <select id="security_question" name="security_question" required>
+                <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+                <option value="What city were you born in?">What city were you born in?</option>
+                <option value="What is your favorite book?">What is your favorite book?</option>
+                <option value="What is the name of your first pet?">What is the name of your first pet?</option>
+            </select><br><br>
+            <label for="security_answer">Security Answer:</label><br>
+            <input type="text" id="security_answer" name="security_answer" required><br><br>
+            </div>
             <button type="submit">Signup</button>
         </form>
         <p>Already have an account? <a href="/login">Login</a></p>

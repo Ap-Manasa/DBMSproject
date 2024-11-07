@@ -4,48 +4,82 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile</title>
-    <!-- Link your CSS file here if needed -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='sccs.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
     <style>
         #pp {
-            color: aliceblue;
+            color: burlywood;
+            font-size: xx-large;
+        }
+
+        /* Define different classes for buttons */
+        .change-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .delete-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .upload-button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        /* Add hover effect for all buttons */
+        .change-button:hover, .delete-button:hover, .upload-button:hover {
+            filter: brightness(110%);
         }
     </style>
 </head>
 <body>
-    <div class="hi">
+    <header>
         <h1>Welcome, {{ username }}</h1>
-    </div>
-
-    <div class="menu">
-        <ul>
-            <li><a href="/profile">Profile</a></li>
-            <li><a href="/documents">Documents</a></li>
-            <li><a href="/logout">Logout</a></li>
-        </ul>
-    </div>
+        <p>Please upload or update your profile picture here. This picture will be used for face access.
+           It will be stored securely in our database and utilized for identification purposes when you choose face access.</p>
+    </header>
 
     <main>
         <section>
-            <h2 id="pp"> Profile Picture</h2>
+            <h2 id="pp">Profile Picture</h2>
             <!-- Display the profile picture if it exists -->
             {% if profile_picture_path %}
-            <img src="{{ url_for('static', filename=profile_picture_path) }}" alt="Profile Picture">
+        
+            <img src="{{ url_for('static', filename=profile_picture_path) }}" alt="Profile Picture" style="width: 200px; border-radius: 10px; margin-bottom: 10px;">
+
             <br>
             <!-- Form to allow users to change their profile picture -->
             <form action="/update-profile-picture" method="post" enctype="multipart/form-data">
                 <input type="file" name="profile_picture" accept="image/*" required>
-                <button type="submit">Change Picture</button>
+                <br>
+                <button type="submit" class="change-button">Change Picture</button> <!-- Assign class to change button -->
             </form>
             <!-- Form to allow users to delete their profile picture -->
             <form action="/delete-profile-picture" method="post">
-                <button type="submit">Delete Picture</button>
+                <button type="submit" class="delete-button">Delete Picture</button> <!-- Assign class to delete button -->
             </form>
             {% else %}
             <!-- Show upload option if no profile picture is available -->
             <form action="/upload-profile-picture" method="post" enctype="multipart/form-data">
                 <input type="file" name="profile_picture" accept="image/*" required>
-                <button type="submit">Upload Picture</button>
+                <br>
+                <button type="submit" class="upload-button">Upload Picture</button> <!-- Assign class to upload button -->
             </form>
             {% endif %}
         </section>

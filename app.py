@@ -1,8 +1,12 @@
 import face_recognition
+import hashlib
+import secrets
 import os
 from flask import send_from_directory
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from mysql.connector import Error
+import mysql.connector
 from flask_mysqldb import MySQL
 import io
 import dropbox
@@ -20,9 +24,8 @@ app.config['MYSQL_DB'] = 'deepali'
 mysql = MySQL(app)
 
 # Routes for user authentication
-DROPBOX_ACCESS_TOKEN ='sl.BxzFKT08aAmnNtz0kX7vBgxNLi8sHdu8ZxluD2utnjhA1r2DT0A3Loyf1EU7p6v-EZMVqFUHHIf0eV-IUvoSQ2OqD7xp1WdtaEwRMVapXnXREHT6HMTqOjWSzItLYCuckWARQrAISLag'
+DROPBOX_ACCESS_TOKEN ='sl.ByGoYJWH3IQJmkr5Vw15tHHuPHAEPIEARgILyd8e5CogmNesPhKrYKf32yOPlQD-SuaFTtMmrLU0q2Sof96BG3Pi1cDjsfskqbV7I2uuuTGhWOfzErFGvgYkLXAZaD3h5k_WcpOXfOKG'
 dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
-
 # Secret key for session
 app.secret_key = 'your_secret_key'
 
@@ -85,6 +88,7 @@ def auth():
                             return True
 
                         recognized_face_names.append(name)
+                        print(recognized_face_names)
 
                     # Display the recognized face names
                     for (top, right, bottom, left), name in zip(face_locations, recognized_face_names):
@@ -249,30 +253,110 @@ def logout():
 # def profile():
 #     return render_template('profile.html')
 
+# Function to generate a salt
+def generate_salt():
+    return secrets.token_hex(16)  # 16 bytes (128 bits) salt
+
+# Function to hash the secret key with salt
+def hash_secret_key(secret_key, salt):
+    hashed = hashlib.sha256()
+    hashed.update(secret_key.encode('utf-8') + salt.encode('utf-8'))
+    return hashed.hexdigest()
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         secret_key = request.form['key']
-        
+        security_question = request.form['security_question']
+        security_answer = request.form['security_answer']
         # Store username, password, and secret key in the session
         session['username'] = username
         session['secret_key'] = secret_key
 
+        salt = generate_salt()
+        hashed_secret_key = hash_secret_key(secret_key, salt)
+
         # Store username and password in the database
         cur = mysql.connection.cursor()
         cur.execute('INSERT INTO users (username, password, `key`) VALUES (%s, %s, %s)', (username, password, secret_key))
+        cur.execute('INSERT INTO AUTH (security_question, security_answer,username) VALUES (%s,%s,%s)',(security_question,security_answer,username))
+        cur.execute("INSERT INTO secret_key (username,secret_key) VALUES (%s, %s)",
+                           (username,hashed_secret_key))
         mysql.connection.commit()
         cur.close()
 
         return redirect(url_for('index'))
     return render_template('signup.html')
 
+def connect_to_database():
+    try:
+        mysql_connection = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="dbms",
+            database="deepali"
+        )
+        return mysql_connection
+    except mysql.connector.Error as e:
+        print(f"Error connecting to MySQL database: {e}")
+        return None
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        usn = request.form['usn']
+        
+        security_answer = request.form['security_answer']
+
+        try:
+            cursor = mysql.connection.cursor()
+            cursor.execute("SELECT security_question, security_answer FROM AUTH WHERE username = %s", (usn,))
+            data = cursor.fetchone()
+            if data:
+                correct_answer = data[1]
+                if security_answer == correct_answer:
+                    return render_template('update_password.html', usn=usn)
+                else:
+                    return render_template('forgot_password.html', message="Incorrect security answer. Please try again.")
+            else:
+                return render_template('forgot_password.html', message="User not found.")
+        except Exception as e:
+            print(f"Error selecting data from MySQL database: {e}")
+            return "Error accessing database: " + str(e)
+        finally:
+            cursor.close()
+
+    return render_template('forgot_password.html')
+
+
+@app.route('/update_password', methods=['POST'])
+def update_password():
+    if request.method == 'POST':
+        usn = request.form['usn']
+        new_password = request.form['new_password']
+
+        try:
+            connection = mysql.connection
+            cursor = connection.cursor()
+            cursor.execute("UPDATE users SET password = %s WHERE username = %s", (new_password,usn,))
+            connection.commit()
+            cursor.close()
+            return redirect(url_for('login', message="Password updated successfully. Please login with your new password."))
+        except Exception as e:
+            print(f"Error updating password in MySQL database: {e}")
+            return "Error updating password"
+    else:
+        return redirect(url_for('landing'))
+
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static')
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
+
+
 
 # Render profile page
 @app.route('/profile')
@@ -329,6 +413,7 @@ def upload_profile_picture():
     # Update the user's profile picture file path in the database
     cursor = mysql.connection.cursor()
     cursor.execute("UPDATE users SET profile_picture = %s WHERE username = %s", (filename, username))
+    cursor.execute("INSERT INTO profile (profile) VALUES (%s)", (filename,))
     mysql.connection.commit()
     cursor.close()
 
